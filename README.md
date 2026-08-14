@@ -10,18 +10,23 @@ legível a partir do que foi selecionado.
 
 ```html
 <div id="ccf"></div>
+<script src="https://cdn.jsdelivr.net/gh/ggbianco/cc-atalhos@v2/cc-atalhos.js"></script>
 <script>
-  var AUTOR = "";           // nome de quem responde (opcional)
-  var INTRO = "…";          // linha de abertura
-  var QS = [                // as perguntas
-    { n: "1", t: "Pergunta?", mode: "single", opts: [
-      { c: "A", e: "🚀", l: "Opção", sub: "detalhe", rec: 1 },
-      { c: "B", e: "⏸️", l: "Outra" }
-    ]}
-  ];
+  ccAtalhos({
+    autor: "",               // nome de quem responde (opcional)
+    intro: "…",              // linha de abertura
+    qs: [                    // as perguntas
+      { n: "1", t: "Pergunta?", mode: "single", opts: [
+        { c: "A", e: "🚀", l: "Opção", sub: "detalhe", rec: 1 },
+        { c: "B", e: "⏸️", l: "Outra" }
+      ]}
+    ]
+  });
 </script>
-<script src="https://cdn.jsdelivr.net/gh/ggbianco/cc-atalhos@v1/cc-atalhos.js"></script>
 ```
+
+> ⚠️ O `<script src>` vem **antes** do inline que chama `ccAtalhos(...)`.
+> Variável solta num `<script>` inline não vira global no ambiente de widget.
 
 `mode`: `single` (marcador redondo) ou `multi` (quadrado). `rec: 1` marca a
 opção como sugerida. Pergunta deixada sem seleção e sem complemento é omitida

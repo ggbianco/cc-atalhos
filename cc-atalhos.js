@@ -3,23 +3,30 @@
  *  jsDelivr, então a sessão emite só os DADOS (AUTOR + INTRO + QS) em vez de
  *  re-emitir o modelo inteiro a cada formulário.
  *
- *  Uso dentro de show_widget:
- *    <div id="ccf"></div>
- *    <script>
- *      var AUTOR="<nome de quem responde>";
- *      var INTRO="...";
- *      var QS=[{n:"1",t:"...",mode:"single",opts:[{c:"A",e:"🚀",l:"...",sub:"...",rec:1}]}];
- *    </script>
- *    <script src="https://cdn.jsdelivr.net/gist/<user>/<id>/cc-atalhos.js"></script>
+ *  Uso dentro de show_widget — o <script src> vem SEMPRE ANTES do inline que
+ *  o usa (variável solta em <script> inline NÃO vira global no widget: provado
+ *  em 13/08/2026, o formulário montou a moldura e os botões mas ficou sem
+ *  nenhuma pergunta):
  *
- *  AUTOR é passado pela sessão (não fica gravado aqui) — sem ele, o texto sai
- *  sem nome. Licença: uso interno; sem dependências, sem rede, sem coleta.
+ *    <div id="ccf"></div>
+ *    <script src="https://cdn.jsdelivr.net/gh/<user>/cc-atalhos@v2/cc-atalhos.js"></script>
+ *    <script>
+ *      ccAtalhos({
+ *        autor: "<nome de quem responde>",
+ *        intro: "...",
+ *        qs: [{n:"1",t:"...",mode:"single",opts:[{c:"A",e:"🚀",l:"...",sub:"...",rec:1}]}]
+ *      });
+ *    </script>
+ *
+ *  `autor` é passado por quem chama (não fica gravado aqui) — sem ele, o texto
+ *  sai sem nome. Sem dependências, sem rede, sem coleta.
  */
-(function () {
-  var HOSPEDE = document.getElementById("ccf") || document.body;
-  var AUTOR = (window.AUTOR || "").trim();
-  var INTRO = window.INTRO || "";
-  var QS = window.QS || [];
+window.ccAtalhos = function (cfg) {
+  cfg = cfg || {};
+  var HOSPEDE = document.getElementById(cfg.hospede || "ccf") || document.body;
+  var AUTOR = String(cfg.autor || "").trim();
+  var INTRO = cfg.intro || "";
+  var QS = cfg.qs || [];
 
   var CSS =
     ".ff{--t:#0D2C54;background:var(--surface-2);border:.5px solid var(--border);border-radius:14px;padding:1.25rem 1.35rem;margin:1rem 0}" +
@@ -191,5 +198,9 @@
 
   def();
   ref();
-  window.CC_ATALHOS_OK = true; // rede de segurança: prova que o modelo carregou
-})();
+  // Rede de segurança: prova que o modelo carregou E montou as perguntas.
+  // Só marca OK se houve pergunta de verdade — em 13/08 o arquivo carregou
+  // com a lista vazia e o aviso de falha não disparou, porque media só
+  // "o arquivo chegou" em vez de "o formulário está utilizável".
+  window.CC_ATALHOS_OK = QS.length > 0;
+};
