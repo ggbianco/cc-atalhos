@@ -54,7 +54,10 @@ window.ccAtalhos = function (cfg) {
     ".send{display:flex;align-items:center;gap:9px;font-weight:500;padding:12px 26px;border-radius:var(--radius);border:none;cursor:pointer}" +
     ".send:active{transform:scale(.98)}" +
     ".pvlab{font-size:12px;color:var(--text-muted);margin:0 0 6px}" +
-    ".pv{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);background:var(--surface-1);padding:12px 14px;border-radius:10px;border:1px solid var(--border-strong);white-space:pre-wrap;margin:0;line-height:1.65}";
+    ".pv{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);background:var(--surface-1);padding:12px 14px;border-radius:10px;border:1px solid var(--border-strong);white-space:pre-wrap;margin:0;line-height:1.65}" +
+    ".copy{display:flex;align-items:center;gap:8px;font-weight:500;padding:12px 20px;border-radius:var(--radius);cursor:pointer}" +
+    ".copy:active{transform:scale(.98)}" +
+    ".cpst{font-size:12.5px;color:var(--text-secondary);margin:8px 0 0;min-height:1em}";
 
   var st = document.createElement("style");
   st.textContent = CSS;
@@ -74,8 +77,9 @@ window.ccAtalhos = function (cfg) {
     '<div class="foot"><textarea class="qobs gobs" rows="1" style="font-size:14px;min-height:38px;padding:8px 12px;line-height:1.5;margin:0 0 16px" placeholder="observação geral (opcional)…"></textarea>' +
     '<div class="acts">' +
     '<button class="reset" style="font-size:14px">restaurar sugestões</button>' +
+    '<button class="copy" style="background:var(--surface-1);color:var(--text-primary);border:1px solid #0D2C54;font-size:14px"><i class="ti ti-copy" aria-hidden="true"></i> Copiar resposta</button>' +
     '<button class="send" style="background:#0D2C54;color:#fff;font-size:14px"><span class="sendlab">Aceitar sugestões</span> <i class="ti ti-arrow-right" aria-hidden="true"></i></button>' +
-    '</div><p class="pvlab">vai cair no campo assim:</p><div class="pv"></div></div>';
+    '</div><p class="cpst" aria-live="polite"></p><p class="pvlab">vai cair no campo assim:</p><div class="pv"></div></div>';
   HOSPEDE.appendChild(ff);
 
   var q = function (sel) {
@@ -191,9 +195,35 @@ window.ccAtalhos = function (cfg) {
     ref();
   });
   q(".reset").addEventListener("click", function () { def(); ref(); });
+  // v3 (16/10/2026): o envio direto (sendPrompt) às vezes não entrega nada ao chat, sem erro
+  // (medido pela Taxonomia com o Giovanni). Copiar é a saída que sempre funciona: 3 degraus, e só
+  // diz "copiado" quando um degrau confirmou; senão deixa o texto selecionado e pede Cmd+C.
+  function avisa(t) { q(".cpst").textContent = t; }
+  function seleciona() {
+    var s = window.getSelection(), rg = document.createRange();
+    rg.selectNodeContents(q(".pv")); s.removeAllRanges(); s.addRange(rg);
+    avisa("O texto está selecionado: aperte Cmd+C e cole no chat.");
+  }
+  function antigo(txt) {
+    var ta = document.createElement("textarea");
+    ta.value = txt; ta.setAttribute("readonly", ""); ta.style.position = "absolute"; ta.style.left = "-9999px";
+    document.body.appendChild(ta); ta.select();
+    var ok = false; try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+    document.body.removeChild(ta); return ok;
+  }
+  q(".copy").addEventListener("click", function () {
+    var r = build(); if (r.em) { avisa("Nada marcado ainda."); return; }
+    var txt = r.text;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(function () { avisa("Copiado ✓ Cole no chat (Cmd+V) e envie."); },
+        function () { if (antigo(txt)) avisa("Copiado ✓ Cole no chat (Cmd+V) e envie."); else seleciona(); });
+    } else if (antigo(txt)) { avisa("Copiado ✓ Cole no chat (Cmd+V) e envie."); } else { seleciona(); }
+  });
   q(".send").addEventListener("click", function () {
     var r = build();
-    if (!r.em) sendPrompt(r.text);
+    if (r.em) return;
+    try { sendPrompt(r.text); } catch (e) {}
+    avisa("Enviado. Se não apareceu no chat em alguns segundos, use Copiar resposta.");
   });
 
   def();
