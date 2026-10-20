@@ -4,7 +4,7 @@
  *  Envelope (o mesmo em todo formulário):
  *    <div id="ccf">Formulário carregando. Se ele não aparecer, responda por texto: S aceita as sugestões, ou 1b 2a.</div>
  *    <script type="application/json" id="ccd">{"a":"<nome>","q":[{"t":"…","o":[{"e":"🚀","l":"…","s":"…","r":1}]}]}<\/script>
- *    <script src="https://cdn.jsdelivr.net/gh/ggbianco/cc-atalhos@v4.0.1/cc-atalhos.js"><\/script>
+ *    <script src="https://cdn.jsdelivr.net/gh/ggbianco/cc-atalhos@v4.1.0/cc-atalhos.js"><\/script>
  *
  *  Dados (campo omitido = padrão):
  *    a  autor (nome de quem responde)          i  introdução
@@ -20,7 +20,7 @@
  */
 (function () {
   "use strict";
-  var V = "4.0.1";
+  var V = "4.1.0";
 
   // ───────── utilitários ─────────
   function el(tag, cls, txt) {
@@ -50,8 +50,27 @@
   var ACOES = [
     { k: "comp", ic: "pencil", l: "Complementar", d: "Escrever uma instrução para o Claude sobre esta pergunta", cor: "azul" },
     { k: "naoent", ic: "help", l: "Não entendi", d: "O Claude reescreve a pergunta com mais contexto antes de seguir", cor: "ambar" },
-    { k: "nenhuma", ic: "ban", l: "Nenhuma serve", d: "Nenhuma opção serve: o Claude propõe outras", cor: "verm" }
+    { k: "nenhuma", ic: "ban", l: "Nenhuma serve", d: "Nenhuma opção serve: o Claude propõe outras", cor: "verm" },
+    { k: "adiar", ic: "clock", l: "Adiar", d: "Decidir depois: vira tarefa no Notion com a data, e o Claude traz o assunto de volta", cor: "roxo" },
+    { k: "encerrar", ic: "door-exit", l: "Encerrar assunto", d: "O Claude não volta a este assunto neste chat, a menos que você peça", cor: "cinza" }
   ];
+  var EXCLUSIVAS = ["naoent", "nenhuma", "adiar", "encerrar"]; // uma de cada vez, e cada uma limpa a escolha das opções
+  // GIFs da leveza: guardados no próprio repositório (o chat não carrega Giphy nem Tenor; jsDelivr sim, teste de 20/10/2026).
+  // O Claude escreve só o nome: {"z":{"g":"martelo","c":"DECIDIDO","t":"…"}}.
+  var GIFS = ["alivio", "aplausos", "aura", "confete", "danca", "divou", "feno", "levelup", "martelo", "match", "micdrop", "peruca", "rip", "sparkjoy", "supergirl", "tudobem"];
+  var BASE_GIF = window.QR_GIF_BASE || "https://cdn.jsdelivr.net/gh/ggbianco/cc-atalhos@v" + V + "/gifs/"; // a troca é só para a página de teste
+  var DIAS = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
+  function hoje0() { var d = new Date(); d.setHours(0, 0, 0, 0); return d; }
+  function maisDias(n) { var d = hoje0(); d.setDate(d.getDate() + n); return d; }
+  function proxSegunda() { var d = hoje0(), k = (8 - d.getDay()) % 7 || 7; d.setDate(d.getDate() + k); return d; }
+  function iso(d) { return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
+  function br(d) { return ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2) + "/" + d.getFullYear(); }
+  function rel(d) { // data relativa, como o Giovanni pediu no v8: Hoje, Amanhã, Em 3 dias, Próxima segunda
+    var n = Math.round((d - hoje0()) / 86400000);
+    if (n === 0) return "hoje"; if (n === 1) return "amanhã"; if (n < 0) return "há " + (-n) + " dias";
+    if (+d === +proxSegunda() && n > 1) return "próxima segunda";
+    return "em " + n + " dias";
+  }
   var RODAPE = [
     { g: "Tamanho", u: 1, it: [["🐦", "Tuíte", "=short (tamanho: tuíte, poucas linhas)"], ["✂️", "Curto", "=short"], ["📄", "Médio", "tamanho médio"], ["📚", "Completo", "=long"], ["🗂️", "Super completo", "=long =max"]] },
     { g: "Profundidade", u: 1, it: [["🧸", "ELI5", "profundidade: ELI5 (como para uma criança de 5 anos)"], ["📘", "Para leigos", "profundidade: para leigos"], ["🎓", "ELI15", "profundidade: ELI15 (adolescente esperto)"], ["🍎", "Professor favorito", "profundidade: professor favorito (expert que explica com didática)"], ["🍻", "Papo de bar", "profundidade: papo de bar"], ["🛠️", "Colega da área", "profundidade: colega da área"], ["🔬", "Expert", "profundidade: expert"], ["👵", "ELI vó", "profundidade: ELI vó (sem inglês nem sigla, com exemplos do dia a dia)"], ["🥪", "Sanduíche", "profundidade: sanduíche (a mesma ideia em 3 níveis: para leigos, professor favorito e expert)"]] },
@@ -60,10 +79,10 @@
   ];
 
   var CSS =
-    ".qr{--acc:#0D2C54;--accbg:rgba(13,44,84,.06);--verde:#1F7A4D;--verdebg:rgba(31,122,77,.08);--azul:#2563A8;--ambar:#9A6100;--verm:#B3261E;" +
+    ".qr{--acc:#0D2C54;--accbg:rgba(13,44,84,.06);--verde:#1F7A4D;--verdebg:rgba(31,122,77,.08);--azul:#2563A8;--ambar:#9A6100;--verm:#B3261E;--roxo:#6B4FBB;" +
     "background:var(--surface-2,#fff);border:.5px solid var(--border,#ddd);border-radius:14px;padding:1.25rem 1.35rem;margin:1rem 0;font-family:var(--font-sans,system-ui);color:var(--text-primary,#222)}" +
-    "@media (prefers-color-scheme:dark){.qr{--acc:#9DBCE8;--accbg:rgba(157,188,232,.10);--verde:#6FCF97;--verdebg:rgba(111,207,151,.10);--azul:#8AB4F8;--ambar:#F2C46D;--verm:#F28B82}}" +
-    ".qr *{box-sizing:border-box}" +
+    "@media (prefers-color-scheme:dark){.qr{--acc:#9DBCE8;--accbg:rgba(157,188,232,.10);--verde:#6FCF97;--verdebg:rgba(111,207,151,.10);--azul:#8AB4F8;--ambar:#F2C46D;--verm:#F28B82;--roxo:#B9A6F5}}" +
+    ".qr *{box-sizing:border-box}.qr [hidden]{display:none!important}" +
     ".qr .intro{font-size:15px;color:var(--text-secondary,#555);margin:0 0 1.3rem;line-height:1.55}" +
     ".qr .qb{margin:0 0 1.6rem}" +
     ".qr .qh{color:#fff;background:#0D2C54;padding:10px 14px;border-radius:8px;font-size:16px;font-weight:600;display:flex;align-items:center;gap:10px;flex-wrap:wrap}" +
@@ -97,6 +116,22 @@
     ".qr .ab[data-c=azul]:hover,.qr .ab[data-c=azul].on{color:var(--azul);border-color:var(--azul)}" +
     ".qr .ab[data-c=ambar]:hover,.qr .ab[data-c=ambar].on{color:var(--ambar);border-color:var(--ambar)}" +
     ".qr .ab[data-c=verm]:hover,.qr .ab[data-c=verm].on{color:var(--verm);border-color:var(--verm)}" +
+    ".qr .ab[data-c=roxo]:hover,.qr .ab[data-c=roxo].on{color:var(--roxo);border-color:var(--roxo)}" +
+    ".qr .ab[data-c=cinza]:hover,.qr .ab[data-c=cinza].on{color:var(--text-primary,#222);border-color:var(--text-secondary,#555)}" +
+    ".qr .ab.off,.qr .opts.off{opacity:.38;pointer-events:none}" +
+    ".qr .adp{margin:8px 0 0 6px;padding:10px 12px;border-radius:9px;background:var(--surface-1,#f6f6f6);display:flex;flex-wrap:wrap;gap:6px;align-items:center}" +
+    ".qr .adp input[type=date]{font-size:14px;padding:4px 8px;border:1px solid var(--border-strong,#bbb);border-radius:7px;background:var(--surface-2,#fff);color:var(--text-primary,#222)}" +
+    ".qr .adp .rel{font-size:13.5px;color:var(--roxo);font-weight:600}" +
+    ".qr .festa{position:relative;overflow:hidden;margin:10px 0 0 6px;padding:14px;border-radius:12px;background:var(--surface-1,#f6f6f6);display:flex;gap:14px;align-items:center;flex-wrap:wrap;animation:qr-pop .35s ease-out}" +
+    ".qr .festa img{width:150px;max-width:100%;border-radius:9px;flex:none}" +
+    ".qr .festa .fx{flex:1;min-width:160px}" +
+    ".qr .festa .carimbo{display:inline-block;font-weight:800;font-size:15px;letter-spacing:.06em;color:var(--verm);border:3px solid var(--verm);border-radius:8px;padding:3px 10px;transform:rotate(-6deg);margin:0 0 8px;animation:qr-carimbo .45s cubic-bezier(.2,1.6,.4,1)}" +
+    ".qr .festa .ft{font-size:18px;font-weight:700;line-height:1.35}" +
+    ".qr .cf{position:absolute;top:-10px;width:8px;height:12px;border-radius:2px;animation:qr-cai 1.6s ease-in forwards;pointer-events:none}" +
+    "@keyframes qr-pop{from{transform:scale(.92);opacity:0}to{transform:none;opacity:1}}" +
+    "@keyframes qr-carimbo{from{transform:rotate(-6deg) scale(2.2);opacity:0}to{transform:rotate(-6deg) scale(1);opacity:1}}" +
+    "@keyframes qr-cai{to{transform:translateY(260px) rotate(540deg);opacity:0}}" +
+    "@media (prefers-reduced-motion:reduce){.qr .cf{display:none}.qr .festa,.qr .festa .carimbo{animation:none}}" +
     ".qr .ab.on{font-weight:600;background:var(--surface-1,#f4f4f4)}" +
     ".qr .ab .tip{position:absolute;top:calc(100% + 6px);left:0;z-index:5;width:max-content;max-width:260px;background:#1E293B;color:#fff;font-size:12.5px;font-weight:400;line-height:1.45;padding:6px 9px;border-radius:7px;opacity:0;pointer-events:none;transition:opacity .1s}" +
     ".qr .ab:hover .tip,.qr .ab:focus-visible .tip{opacity:1;transition-delay:.1s}" +
@@ -147,7 +182,7 @@
           var rec = !!(antigo ? o.rec : o.r);
           if (k === "f") rec = false;                 // fato que só você sabe: nunca vem marcado
           if (!multi && rec) { if (jaSug) rec = false; else jaSug = true; } // escolha única: só a 1ª sugerida
-          return { c: String(antigo && o.c ? o.c : LETRAS[j] || "?").toUpperCase(), e: String(o.e || ""), l: String(o.l || "(sem rótulo)"), s: String((antigo ? o.sub : o.s) || ""), rec: rec };
+          return { c: String(antigo && o.c ? o.c : LETRAS[j] || "?").toUpperCase(), e: String(o.e || ""), l: String(o.l || "(sem rótulo)"), s: String((antigo ? o.sub : o.s) || ""), rec: rec, z: o.z && typeof o.z === "object" ? o.z : null };
         });
         if (k === "f") opts.push({ c: LETRAS[opts.length] || "?", e: "🤷", l: "Não sei", s: "", rec: false, naosei: true });
         return { n: String(antigo && Q.n ? Q.n : idx + 1), t: String(Q.t || ""), multi: multi, k: k, w: String(Q.w || ""), opts: opts };
@@ -211,6 +246,18 @@
         var qa = el("div", "qa");
         var ta = el("textarea"); ta.placeholder = "Escreva aqui a sua instrução para o Claude sobre esta pergunta…"; ta.hidden = true;
         var act = {};
+        var adp = el("div", "adp"); adp.hidden = true;
+        var dataIn = el("input"); dataIn.type = "date"; dataIn.setAttribute("aria-label", "Data para retomar");
+        var relEl = el("span", "rel");
+        var Bq = { data: null };
+        function poeData(d) { Bq.data = d; dataIn.value = iso(d); relEl.textContent = "(" + rel(d) + ", " + DIAS[d.getDay()] + ")"; ref(); }
+        [["Hoje à noite", 0], ["Amanhã", 1], ["Em 3 dias", 3], ["Próxima segunda", "seg"], ["Em 1 semana", 7]].forEach(function (p) {
+          var c = bt("chip", p[0]);
+          c.addEventListener("click", function () { adp.querySelectorAll(".chip").forEach(function (x) { x.classList.remove("on"); }); c.classList.add("on"); Bq.noite = p[1] === 0; poeData(p[1] === "seg" ? proxSegunda() : maisDias(p[1])); });
+          adp.appendChild(c);
+        });
+        dataIn.addEventListener("change", function () { if (!dataIn.value) return; var q = dataIn.value.split("-"); adp.querySelectorAll(".chip").forEach(function (x) { x.classList.remove("on"); }); Bq.noite = false; poeData(new Date(+q[0], +q[1] - 1, +q[2])); });
+        adp.appendChild(dataIn); adp.appendChild(relEl);
         ACOES.forEach(function (A) {
           var bo = bt("ab"); bo.setAttribute("data-c", A.cor);
           bo.appendChild(ic(A.ic)); bo.appendChild(document.createTextNode(A.l)); bo.appendChild(el("span", "tip", A.d));
@@ -218,16 +265,21 @@
             var liga = !bo.classList.contains("on");
             if (A.k === "comp") { bo.classList.toggle("on", liga); ta.hidden = !liga; if (liga) ta.focus(); }
             else {
-              ACOES.forEach(function (X) { if (X.k !== "comp") act[X.k].classList.remove("on"); });
+              EXCLUSIVAS.forEach(function (k) { act[k].classList.remove("on"); });
               bo.classList.toggle("on", liga);
-              if (liga) os.querySelectorAll(".opt").forEach(function (x) { x.classList.remove("sel"); x._inp.checked = false; });
+              if (liga) { os.querySelectorAll(".opt").forEach(function (x) { x.classList.remove("sel"); x._inp.checked = false; }); tiraFesta(b); }
+              adp.hidden = !(liga && A.k === "adiar");
+              if (A.k === "adiar" && liga && !Bq.data) poeData(hoje0()); // nasce com hoje, como pedido no v8
+              var enc = liga && A.k === "encerrar"; // encerrado: o resto da pergunta fica apagado (comentário 14)
+              os.classList.toggle("off", enc);
+              Object.keys(act).forEach(function (k) { if (k !== "encerrar") act[k].classList.toggle("off", enc); });
             }
             ref();
           });
           act[A.k] = bo; qa.appendChild(bo);
         });
-        b.appendChild(qa); b.appendChild(ta);
-        blocos.push({ Q: Q, el: b, os: os, ta: ta, act: act });
+        b.appendChild(qa); b.appendChild(adp); b.appendChild(ta);
+        blocos.push({ Q: Q, el: b, os: os, ta: ta, act: act, adp: adp, Bq: Bq });
       } catch (err) {
         defeito.push(Q.n);
         b.textContent = "";
@@ -289,12 +341,34 @@
     foot.appendChild(el("p", "ver", "formulário v" + V + " " + SELO));
     ff.appendChild(foot);
 
+    // ───────── leveza: carimbo, confete e GIF quando a escolha é uma conquista ─────────
+    function tiraFesta(b) { var f = b.querySelector(".festa"); if (f) f.remove(); }
+    function festa(b, z) {
+      var f = el("div", "festa");
+      var g = String(z.g || "");
+      if (GIFS.indexOf(g) >= 0) { var im = el("img"); im.src = BASE_GIF + g + ".gif"; im.alt = ""; im.onerror = function () { im.remove(); }; f.appendChild(im); }
+      var fx = el("div", "fx");
+      if (z.c) fx.appendChild(el("div", "carimbo", String(z.c)));
+      if (z.t) fx.appendChild(el("div", "ft", String(z.t)));
+      f.appendChild(fx);
+      var CORES = ["#F8A8A8", "#F0E070", "#78E8B8", "#80B8F0", "#A898F0", "#E098D0", "#F8C888"];
+      for (var k = 0; k < 36; k++) {
+        var p = el("span", "cf");
+        p.style.left = Math.random() * 100 + "%"; p.style.background = CORES[k % CORES.length];
+        p.style.animationDelay = Math.random() * 0.4 + "s"; p.style.animationDuration = 1.2 + Math.random() * 0.9 + "s";
+        f.appendChild(p);
+      }
+      var depois = b.querySelector(".qa"); b.insertBefore(f, depois);
+      setTimeout(function () { [].forEach.call(f.querySelectorAll(".cf"), function (p) { p.remove(); }); }, 2600);
+    }
+
     // ───────── estado e texto ─────────
     function padrao() {
       blocos.forEach(function (B) {
         B.os.querySelectorAll(".opt").forEach(function (x) { var on = x.hasAttribute("data-rec"); x.classList.toggle("sel", on); x._inp.checked = on; });
         B.ta.value = ""; B.ta.hidden = true;
-        Object.keys(B.act).forEach(function (k) { B.act[k].classList.remove("on"); });
+        Object.keys(B.act).forEach(function (k) { B.act[k].classList.remove("on"); B.act[k].classList.remove("off"); });
+        B.os.classList.remove("off"); B.adp.hidden = true; B.Bq.data = null; tiraFesta(B.el);
       });
       aj.querySelectorAll(".chip").forEach(function (x) { x.classList.remove("on"); });
       aj.querySelectorAll(".cons").forEach(function (x) { x.hidden = true; });
@@ -310,9 +384,12 @@
         var rec = [].slice.call(B.os.querySelectorAll(".opt[data-rec]"));
         var c = B.ta.hidden ? "" : B.ta.value.trim();
         var ne = B.act.naoent.classList.contains("on"), nh = B.act.nenhuma.classList.contains("on");
-        if (sel.map(function (x) { return x._o.c; }).join() !== rec.map(function (x) { return x._o.c; }).join() || c || ne || nh) mexeu = true;
+        var ad = B.act.adiar.classList.contains("on") && B.Bq.data, en = B.act.encerrar.classList.contains("on");
+        if (sel.map(function (x) { return x._o.c; }).join() !== rec.map(function (x) { return x._o.c; }).join() || c || ne || nh || ad || en) mexeu = true;
         L.push(B.Q.n + ") " + B.Q.t);
-        if (ne) L.push("❓ Não entendi: reescreva esta pergunta com mais contexto antes de seguir.");
+        if (en) L.push("🚪 Encerrar assunto: não volte a ele neste chat, a menos que eu peça.");
+        else if (ad) L.push("⏰ Adiar para " + br(B.Bq.data) + (B.Bq.noite ? " à noite" : "") + " (" + DIAS[B.Bq.data.getDay()] + ", " + rel(B.Bq.data) + ")");
+        else if (ne) L.push("❓ Não entendi: reescreva esta pergunta com mais contexto antes de seguir.");
         else if (nh) L.push("🚫 Nenhuma opção serve: proponha outras.");
         else if (!sel.length) { L.push("(sem resposta, continua aberta)"); mexeu = true; } // "aceita as sugestões" com pergunta aberta enganaria
         sel.forEach(function (x) { var o = x._o; L.push(o.c + (o.e ? " " + o.e : "") + " " + o.l + (o.s ? " (" + o.s + ")" : "")); });
@@ -343,7 +420,9 @@
           if (!B.Q.multi) { B.os.querySelectorAll(".opt").forEach(function (y) { y.classList.remove("sel"); y._inp.checked = false; }); }
           var on = B.Q.multi ? !estava : !estava;
           x.classList.toggle("sel", on); x._inp.checked = on;
-          B.act.naoent.classList.remove("on"); B.act.nenhuma.classList.remove("on");
+          EXCLUSIVAS.forEach(function (k) { B.act[k].classList.remove("on"); B.act[k].classList.remove("off"); });
+          B.os.classList.remove("off"); B.adp.hidden = true;
+          tiraFesta(B.el); if (on && x._o.z) festa(B.el, x._o.z);
           ref();
         });
       });
