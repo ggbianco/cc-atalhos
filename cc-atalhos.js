@@ -4,7 +4,7 @@
  *  Envelope (o mesmo em todo formulário):
  *    <div id="ccf">Formulário carregando. Se ele não aparecer, responda por texto: S aceita as sugestões, ou 1b 2a.</div>
  *    <script type="application/json" id="ccd">{"a":"<nome>","q":[{"t":"…","o":[{"e":"🚀","l":"…","s":"…","r":1}]}]}<\/script>
- *    <script src="https://cdn.jsdelivr.net/gh/ggbianco/cc-atalhos@v4.1.2/cc-atalhos.js"><\/script>
+ *    <script src="https://cdn.jsdelivr.net/gh/ggbianco/cc-atalhos@v4.1.3/cc-atalhos.js"><\/script>
  *
  *  Dados (campo omitido = padrão):
  *    a  autor (nome de quem responde)          i  introdução
@@ -20,7 +20,7 @@
  */
 (function () {
   "use strict";
-  var V = "4.1.2";
+  var V = "4.1.3";
 
   // ───────── utilitários ─────────
   function el(tag, cls, txt) {
@@ -481,19 +481,29 @@
       } else if (antigo(txt)) avisa(OKC); else seleciona();
     });
     var enviado = 0;
-    function falhou() { copy.classList.add("primary"); avisa("O envio direto falhou neste painel. Use Copiar resposta e cole no chat (Cmd+V)."); }
+    function falhou() { sendlab.textContent = "Enviar"; copy.classList.add("primary"); avisa("O envio direto falhou neste painel. Use Copiar resposta e cole no chat (Cmd+V)."); }
     function enviar() {
       if (!temSP) { copy.click(); return; }
       if (enviado && Date.now() - enviado < 60000) {
         if (sendlab.textContent !== "Reenviar? clique de novo") { sendlab.textContent = "Reenviar? clique de novo"; return; }
       }
       var txt = build().text;
+      // v4.1.3: o envio direto às vezes não entrega nada e não acusa erro, e o formulário não enxerga o chat.
+      // Por isso todo Enviar também copia a resposta: o plano B vira só Cmd+V, sem voltar ao formulário.
+      var hm = new Date().toTimeString().slice(0, 5), copiou = false;
+      function msg() {
+        if (sendlab.textContent !== "Enviado ✓") return; // o envio falhou: o aviso de falha fica
+        avisa("Enviado às " + hm + (copiou ? ". A resposta também foi copiada: se não aparecer no chat em alguns segundos, é só colar (Cmd+V)."
+                                           : ". Se não aparecer no chat em alguns segundos, use Copiar resposta."));
+      }
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(function () { copiou = true; msg(); }, function () { copiou = antigo(txt); msg(); });
+        else copiou = antigo(txt);
+      } catch (e) {}
       try {
         var r = window.sendPrompt(txt);
         enviado = Date.now(); salvar();
-        var hm = new Date().toTimeString().slice(0, 5);
-        avisa("Enviado às " + hm + ". Se não apareceu no chat em alguns segundos, use Copiar resposta.");
-        sendlab.textContent = "Enviado ✓";
+        sendlab.textContent = "Enviado ✓"; msg();
         if (r && typeof r.then === "function") r.then(null, falhou);
       } catch (e) { falhou(); }
     }
