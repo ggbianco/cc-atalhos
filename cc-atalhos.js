@@ -4,7 +4,7 @@
  *  Envelope (o mesmo em todo formulário):
  *    <div id="ccf">Formulário carregando. Se ele não aparecer, responda por texto: S aceita as sugestões, ou 1b 2a.</div>
  *    <script type="application/json" id="ccd">{"a":"<nome>","q":[{"t":"…","o":[{"e":"🚀","l":"…","s":"…","r":1}]}]}<\/script>
- *    <script src="https://cdn.jsdelivr.net/gh/ggbianco/cc-atalhos@v4.1.3/cc-atalhos.js"><\/script>
+ *    <script src="https://cdn.jsdelivr.net/gh/ggbianco/cc-atalhos@v4.1.4/cc-atalhos.js"><\/script>
  *
  *  Dados (campo omitido = padrão):
  *    a  autor (nome de quem responde)          i  introdução
@@ -20,7 +20,7 @@
  */
 (function () {
   "use strict";
-  var V = "4.1.3";
+  var V = "4.1.4";
 
   // ───────── utilitários ─────────
   function el(tag, cls, txt) {
@@ -500,6 +500,23 @@
         if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(function () { copiou = true; msg(); }, function () { copiou = antigo(txt); msg(); });
         else copiou = antigo(txt);
       } catch (e) {}
+      // v4.1.4: o sendPrompt pede ao app ("ui/message") e não devolve a resposta; em algumas conversas o app
+      // responde {"result":{"isError":true}} na hora, sem motivo (sonda 4, 20/10/2026). O formulário escuta essa
+      // resposta e avisa a pessoa, em vez de dizer "Enviado" sem ter chegado nada.
+      function ouvido(ev) {
+        var d = ev.data;
+        if (typeof d === "string") { try { d = JSON.parse(d); } catch (e) { return; } }
+        if (!d || d.jsonrpc !== "2.0" || !d.result || typeof d.result !== "object" || !("isError" in d.result)) return;
+        window.removeEventListener("message", ouvido); clearTimeout(tempo);
+        if (d.result.isError === true) recusado();
+      }
+      function recusado() {
+        enviado = 0; salvar(); sendlab.textContent = "Enviar"; copy.classList.add("primary");
+        avisa("O app recusou o envio nesta conversa (respondeu \"erro\" sem dizer o motivo). " +
+          (copiou ? "A resposta já foi copiada: cole no chat com Cmd+V." : "Use Copiar resposta e cole no chat (Cmd+V)."));
+      }
+      window.addEventListener("message", ouvido);
+      var tempo = setTimeout(function () { window.removeEventListener("message", ouvido); }, 5000);
       try {
         var r = window.sendPrompt(txt);
         enviado = Date.now(); salvar();
