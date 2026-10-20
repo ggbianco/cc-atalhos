@@ -3,8 +3,8 @@
  *
  *  Envelope (o mesmo em todo formulário):
  *    <div id="ccf">Formulário carregando. Se ele não aparecer, responda por texto: S aceita as sugestões, ou 1b 2a.</div>
- *    <script type="application/json" id="ccd">{"a":"<nome>","q":[{"t":"…","o":[{"e":"🚀","l":"…","s":"…","r":1}]}]}</script>
- *    <script src="https://cdn.jsdelivr.net/gh/ggbianco/cc-atalhos@v4.0.0/cc-atalhos.js"></script>
+ *    <script type="application/json" id="ccd">{"a":"<nome>","q":[{"t":"…","o":[{"e":"🚀","l":"…","s":"…","r":1}]}]}<\/script>
+ *    <script src="https://cdn.jsdelivr.net/gh/ggbianco/cc-atalhos@v4.0.1/cc-atalhos.js"><\/script>
  *
  *  Dados (campo omitido = padrão):
  *    a  autor (nome de quem responde)          i  introdução
@@ -20,13 +20,23 @@
  */
 (function () {
   "use strict";
-  var V = "4.0.0";
+  var V = "4.0.1";
 
   // ───────── utilitários ─────────
   function el(tag, cls, txt) {
     var n = document.createElement(tag);
     if (cls) n.className = cls;
     if (txt != null) n.textContent = String(txt);
+    return n;
+  }
+  // O app repinta <button>: a cor vinda de classe sai transparente (sonda de 20/10/2026, painel dividido).
+  // Por isso todo botão é um <span role="button">, que o app não toca, com Tab, Enter e Espaço funcionando.
+  function bt(cls, txt) {
+    var n = el("span", cls, txt);
+    n.setAttribute("role", "button"); n.tabIndex = 0;
+    n.addEventListener("keydown", function (ev) {
+      if ((ev.key === "Enter" || ev.key === " ") && !ev.metaKey && !ev.ctrlKey) { ev.preventDefault(); n.click(); }
+    });
     return n;
   }
   function ic(nome) { var i = el("i", "ti ti-" + nome); i.setAttribute("aria-hidden", "true"); return i; }
@@ -82,6 +92,7 @@
     ".qr .lbl .s{display:block;font-size:13.5px;color:var(--text-secondary,#666);margin-top:2px}" +
     ".qr .tag{display:inline-flex;align-items:center;gap:3px;font-size:12px;color:var(--verde);background:var(--verdebg);border-radius:999px;padding:0 8px;margin-left:6px;font-weight:600;line-height:1.6;vertical-align:1px;white-space:nowrap}" +
     ".qr .qa{display:flex;gap:6px;flex-wrap:wrap;margin:9px 0 0 6px}" +
+    ".qr [role=button]{cursor:pointer}.qr [role=button]:focus-visible{outline:2px solid var(--acc);outline-offset:2px}" +
     ".qr .ab{position:relative;display:inline-flex;align-items:center;gap:5px;font-size:13px;padding:5px 11px;border-radius:999px;border:1px solid var(--border,#ddd);background:var(--surface-2,#fff);color:var(--text-secondary,#555);cursor:pointer;transition:all .1s}" +
     ".qr .ab[data-c=azul]:hover,.qr .ab[data-c=azul].on{color:var(--azul);border-color:var(--azul)}" +
     ".qr .ab[data-c=ambar]:hover,.qr .ab[data-c=ambar].on{color:var(--ambar);border-color:var(--ambar)}" +
@@ -106,7 +117,7 @@
     ".qr .gobs{min-height:44px;margin:0 0 14px;width:100%}" +
     ".qr .acts{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px}" +
     ".qr .acts .dir{display:flex;gap:8px;flex-wrap:wrap}" +
-    ".qr .btn{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:500;padding:11px 20px;border-radius:10px;cursor:pointer;border:1px solid transparent}" +
+    ".qr .btn{display:inline-flex;user-select:none;align-items:center;gap:8px;font-size:15px;font-weight:500;padding:11px 20px;border-radius:10px;cursor:pointer;border:1px solid transparent}" +
     ".qr .btn:active{transform:scale(.98)}" +
     ".qr .reset{background:var(--surface-1,#f4f4f4);color:var(--text-secondary,#555);border-color:var(--border,#ddd);font-size:14px;padding:10px 16px}" +
     ".qr .copy{background:var(--surface-2,#fff);color:var(--text-primary,#222);border-color:var(--acc)}" +
@@ -168,7 +179,7 @@
         if (Q.k) h.appendChild(el("span", "kind", KIND[Q.k]));
         var why = null;
         if (Q.w) {
-          var wb = el("button", "whyb"); wb.type = "button";
+          var wb = bt("whyb");
           wb.appendChild(ic("info-circle")); wb.appendChild(document.createTextNode("Por que estou perguntando"));
           h.appendChild(wb);
           why = el("div", "why", Q.w); why.hidden = true;
@@ -201,19 +212,19 @@
         var ta = el("textarea"); ta.placeholder = "Escreva aqui a sua instrução para o Claude sobre esta pergunta…"; ta.hidden = true;
         var act = {};
         ACOES.forEach(function (A) {
-          var bt = el("button", "ab"); bt.type = "button"; bt.setAttribute("data-c", A.cor);
-          bt.appendChild(ic(A.ic)); bt.appendChild(document.createTextNode(A.l)); bt.appendChild(el("span", "tip", A.d));
-          bt.addEventListener("click", function () {
-            var liga = !bt.classList.contains("on");
-            if (A.k === "comp") { bt.classList.toggle("on", liga); ta.hidden = !liga; if (liga) ta.focus(); }
+          var bo = bt("ab"); bo.setAttribute("data-c", A.cor);
+          bo.appendChild(ic(A.ic)); bo.appendChild(document.createTextNode(A.l)); bo.appendChild(el("span", "tip", A.d));
+          bo.addEventListener("click", function () {
+            var liga = !bo.classList.contains("on");
+            if (A.k === "comp") { bo.classList.toggle("on", liga); ta.hidden = !liga; if (liga) ta.focus(); }
             else {
               ACOES.forEach(function (X) { if (X.k !== "comp") act[X.k].classList.remove("on"); });
-              bt.classList.toggle("on", liga);
+              bo.classList.toggle("on", liga);
               if (liga) os.querySelectorAll(".opt").forEach(function (x) { x.classList.remove("sel"); x._inp.checked = false; });
             }
             ref();
           });
-          act[A.k] = bt; qa.appendChild(bt);
+          act[A.k] = bo; qa.appendChild(bo);
         });
         b.appendChild(qa); b.appendChild(ta);
         blocos.push({ Q: Q, el: b, os: os, ta: ta, act: act });
@@ -238,14 +249,14 @@
       escolhaAj[G.g] = [];
       var alvo = ch;
       if (G.conselho) {
-        var cb = el("button", "chip"); cb.type = "button"; cb.textContent = "🏛️ Montar um conselho";
+        var cb = bt("chip", "🏛️ Montar um conselho");
         var box = el("div", "cons"); box.hidden = true;
         var inner = el("div", "chips"); box.appendChild(el("div", "gl", "Quais perspectivas entram (um agente por perspectiva)?")); box.appendChild(inner);
         cb.addEventListener("click", function () { box.hidden = !box.hidden; cb.classList.toggle("on", !box.hidden); if (box.hidden) { escolhaAj[G.g] = []; inner.querySelectorAll(".chip").forEach(function (x) { x.classList.remove("on"); }); ref(); } });
         ch.appendChild(cb); gw.appendChild(ch); gw.appendChild(box); alvo = inner;
       }
       G.it.forEach(function (it) {
-        var c = el("button", "chip"); c.type = "button"; c.textContent = it[0] + " " + it[1]; c._v = it[2];
+        var c = bt("chip", it[0] + " " + it[1]); c._v = it[2];
         c.addEventListener("click", function () {
           var lig = !c.classList.contains("on");
           if (G.u) alvo.querySelectorAll(".chip").forEach(function (x) { x.classList.remove("on"); });
@@ -265,10 +276,10 @@
     var gobs = el("textarea", "gobs"); gobs.placeholder = "Observação geral (opcional)…";
     foot.appendChild(gobs);
     var acts = el("div", "acts");
-    var reset = el("button", "btn reset", "Restaurar sugestões"); reset.type = "button";
+    var reset = bt("btn reset", "Restaurar sugestões");
     var dir = el("div", "dir");
-    var copy = el("button", "btn copy"); copy.type = "button"; copy.appendChild(ic("copy")); copy.appendChild(document.createTextNode(" Copiar resposta"));
-    var send = el("button", "btn send"); send.type = "button"; var sendlab = el("span", null, "Aceitar sugestões"); send.appendChild(sendlab); send.appendChild(ic("arrow-right"));
+    var copy = bt("btn copy"); copy.appendChild(ic("copy")); copy.appendChild(document.createTextNode(" Copiar resposta"));
+    var send = bt("btn send"); var sendlab = el("span", null, "Aceitar sugestões"); send.appendChild(sendlab); send.appendChild(ic("arrow-right"));
     dir.appendChild(copy); if (temSP) dir.appendChild(send); else copy.classList.add("primary");
     acts.appendChild(reset); acts.appendChild(dir); foot.appendChild(acts);
     var st2 = el("p", "st"); st2.setAttribute("aria-live", "polite"); foot.appendChild(st2);
