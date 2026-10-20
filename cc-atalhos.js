@@ -4,11 +4,12 @@
  *  Envelope (o mesmo em todo formulário):
  *    <div id="ccf">Formulário carregando. Se ele não aparecer, responda por texto: S aceita as sugestões, ou 1b 2a.</div>
  *    <script type="application/json" id="ccd">{"a":"<nome>","q":[{"t":"…","o":[{"e":"🚀","l":"…","s":"…","r":1}]}]}<\/script>
- *    <script src="https://cdn.jsdelivr.net/gh/ggbianco/cc-atalhos@v4.2.0/cc-atalhos.js"><\/script>
+ *    <script src="https://cdn.jsdelivr.net/gh/ggbianco/cc-atalhos@v4.2.1/cc-atalhos.js"><\/script>
  *
  *  Dados (campo omitido = padrão):
  *    a  autor (nome de quem responde)          i  introdução
- *    lt[] linha do tempo [hora, o que aconteceu, detalhe, estado "f" feito | "a" em andamento | "p" pendente]
+ *    lt[] linha do tempo [quando, o que aconteceu, detalhe, estado "f" feito | "a" em andamento | "p" pendente];
+ *         quando = "2026-10-20 10:31" (vira cabeçalho "20/out · hoje" + hora) ou texto livre ("agora", "amanhã")
  *    px[] próximos passos (texto)
  *    q[] perguntas, numeradas pela posição      q.t título (obrigatório)
  *    q.m "m" = escolha múltipla                 q.w "por que estou perguntando" (abre e fecha)
@@ -22,7 +23,7 @@
  */
 (function () {
   "use strict";
-  var V = "4.2.0";
+  var V = "4.2.1";
 
   // ───────── utilitários ─────────
   function el(tag, cls, txt) {
@@ -154,6 +155,8 @@
     ".qr .lti.a .tt2::after{content:' · em andamento';font-weight:500;font-size:13px;color:var(--verde)}" +
     ".qr .lti.p .tt2{color:var(--text-secondary,#555)}" +
     ".qr .lti .dd{font-size:14px;line-height:1.6;color:var(--text-secondary,#555);margin-top:3px}" +
+    ".qr .lt-dia{font-size:13.5px;font-weight:700;color:var(--text-primary,#222);margin:6px 0 8px 62px}" +
+    ".qr .lt-dia span{font-weight:500;color:var(--text-secondary,#555)}" +
     ".qr .px{border-top:.5px solid var(--border,#ddd);margin:2px 0 10px;padding-top:12px}" +
     ".qr .px-h{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-secondary,#555);margin:0 0 8px}" +
     ".qr .px-i{display:flex;gap:8px;font-size:14.5px;line-height:1.55;margin:0 0 6px}" +
@@ -229,10 +232,25 @@
       var lt = el("div", "lt");
       if (D.lt.length) {
         var lh = el("div", "lt-h"); lh.appendChild(ic("timeline")); lh.appendChild(document.createTextNode("Onde estamos")); lt.appendChild(lh);
+        var MES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"], diaAtual = null;
+        function relDia(d) { // data relativa (pedido do Giovanni, 20/10/2026: "20/out · hoje")
+          var n = Math.round((d - hoje0()) / 86400000);
+          return n === 0 ? "hoje" : n === -1 ? "ontem" : n === -2 ? "anteontem" : n === 1 ? "amanhã" : n < 0 ? "há " + (-n) + " dias" : "em " + n + " dias";
+        }
         D.lt.forEach(function (x, k) {
           var est = x[3] === "a" || x[3] === "p" ? x[3] : "f";
+          var m = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}:\d{2}))?$/.exec(String(x[0]).trim()), hora = x[0];
+          if (m) {
+            var d = new Date(+m[1], +m[2] - 1, +m[3]), chave = m[1] + m[2] + m[3];
+            if (chave !== diaAtual) {
+              diaAtual = chave;
+              var cab = el("div", "lt-dia", ("0" + d.getDate()).slice(-2) + "/" + MES[d.getMonth()] + " ");
+              cab.appendChild(el("span", null, "· " + relDia(d) + ", " + DIAS[d.getDay()])); lt.appendChild(cab);
+            }
+            hora = m[4] || "—";
+          }
           var it = el("div", "lti " + est + (k === D.lt.length - 1 ? " ult" : ""));
-          it.appendChild(el("div", "hr", x[0]));
+          it.appendChild(el("div", "hr", hora));
           var tr = el("div", "tr"); tr.appendChild(el("span", "pt")); it.appendChild(tr);
           var tx = el("div", "tx"); tx.appendChild(el("div", "tt2", x[1])); if (x[2]) tx.appendChild(el("div", "dd", x[2]));
           it.appendChild(tx); lt.appendChild(it);
