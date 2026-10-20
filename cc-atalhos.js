@@ -4,7 +4,7 @@
  *  Envelope (o mesmo em todo formulário):
  *    <div id="ccf">Formulário carregando. Se ele não aparecer, responda por texto: S aceita as sugestões, ou 1b 2a.</div>
  *    <script type="application/json" id="ccd">{"a":"<nome>","q":[{"t":"…","o":[{"e":"🚀","l":"…","s":"…","r":1}]}]}<\/script>
- *    <script src="https://cdn.jsdelivr.net/gh/ggbianco/cc-atalhos@v4.1.1/cc-atalhos.js"><\/script>
+ *    <script src="https://cdn.jsdelivr.net/gh/ggbianco/cc-atalhos@v4.1.2/cc-atalhos.js"><\/script>
  *
  *  Dados (campo omitido = padrão):
  *    a  autor (nome de quem responde)          i  introdução
@@ -20,7 +20,7 @@
  */
 (function () {
   "use strict";
-  var V = "4.1.1";
+  var V = "4.1.2";
 
   // ───────── utilitários ─────────
   function el(tag, cls, txt) {
@@ -132,6 +132,7 @@
     "@keyframes qr-carimbo{from{transform:rotate(-6deg) scale(2.2);opacity:0}to{transform:rotate(-6deg) scale(1);opacity:1}}" +
     "@keyframes qr-cai{to{transform:translateY(260px) rotate(540deg);opacity:0}}" +
     "@media (prefers-reduced-motion:reduce){.qr .cf{display:none}.qr .festa,.qr .festa .carimbo{animation:none}}" +
+    ".qr .ab.tem::after{content:' ✎ escrito';font-size:11.5px;color:var(--azul);font-weight:600}" +
     ".qr .ab.on{font-weight:600;background:var(--surface-1,#f4f4f4)}" +
     ".qr .ab .tip{position:absolute;top:calc(100% + 6px);left:0;z-index:5;width:max-content;max-width:260px;background:#1E293B;color:#fff;font-size:12.5px;font-weight:400;line-height:1.45;padding:6px 9px;border-radius:7px;opacity:0;pointer-events:none;transition:opacity .1s}" +
     ".qr .ab:hover .tip,.qr .ab:focus-visible .tip{opacity:1;transition-delay:.1s}" +
@@ -263,7 +264,7 @@
           bo.appendChild(ic(A.ic)); bo.appendChild(document.createTextNode(A.l)); bo.appendChild(el("span", "tip", A.d));
           bo.addEventListener("click", function () {
             var liga = !bo.classList.contains("on");
-            if (A.k === "comp") { bo.classList.toggle("on", liga); ta.hidden = !liga; if (liga) ta.focus(); }
+            if (A.k === "comp") { bo.classList.toggle("on", liga); ta.hidden = !liga; bo.classList.toggle("tem", !liga && !!ta.value.trim()); if (liga) ta.focus(); }
             else {
               EXCLUSIVAS.forEach(function (k) { act[k].classList.remove("on"); });
               bo.classList.toggle("on", liga);
@@ -331,7 +332,7 @@
     var reset = bt("btn reset", "Restaurar sugestões");
     var dir = el("div", "dir");
     var copy = bt("btn copy"); copy.appendChild(ic("copy")); copy.appendChild(document.createTextNode(" Copiar resposta"));
-    var send = bt("btn send"); var sendlab = el("span", null, "Aceitar sugestões"); send.appendChild(sendlab); send.appendChild(ic("arrow-right"));
+    var send = bt("btn send"); var sendlab = el("span", null, "Enviar"); send.appendChild(sendlab); send.appendChild(ic("arrow-right"));
     dir.appendChild(copy); if (temSP) dir.appendChild(send); else copy.classList.add("primary");
     acts.appendChild(reset); acts.appendChild(dir); foot.appendChild(acts);
     var st2 = el("p", "st"); st2.setAttribute("aria-live", "polite"); foot.appendChild(st2);
@@ -382,7 +383,7 @@
       blocos.forEach(function (B) {
         var sel = [].slice.call(B.os.querySelectorAll(".opt.sel"));
         var rec = [].slice.call(B.os.querySelectorAll(".opt[data-rec]"));
-        var c = B.ta.hidden ? "" : B.ta.value.trim();
+        var c = B.ta.value.trim(); // vale o que está escrito, com a caixa aberta ou fechada (v4.1.2: fechar a caixa apagava o texto)
         var ne = B.act.naoent.classList.contains("on"), nh = B.act.nenhuma.classList.contains("on");
         var ad = B.act.adiar.classList.contains("on") && B.Bq.data, en = B.act.encerrar.classList.contains("on");
         if (sel.map(function (x) { return x._o.c; }).join() !== rec.map(function (x) { return x._o.c; }).join() || c || ne || nh || ad || en) mexeu = true;
@@ -409,7 +410,7 @@
       if (g) t += "\n\nObs: " + g;
       return { text: t, mexeu: mexeu };
     }
-    function ref() { var r = build(); pv.textContent = r.text; sendlab.textContent = r.mexeu ? "Enviar seleção" : "Aceitar sugestões"; enviado = 0; send.classList.remove("primary"); }
+    function ref() { var r = build(); pv.textContent = r.text; sendlab.textContent = "Enviar"; enviado = 0; send.classList.remove("primary"); salvar(); }
 
     // ───────── eventos ─────────
     blocos.forEach(function (B) {
@@ -429,9 +430,38 @@
       B.ta.addEventListener("input", function () { B.ta.style.height = "auto"; B.ta.style.height = Math.max(84, B.ta.scrollHeight) + "px"; ref(); });
     });
     gobs.addEventListener("input", ref);
-    reset.addEventListener("click", function () { padrao(); ref(); });
+    reset.addEventListener("click", function () { padrao(); try { localStorage.removeItem(CHAVE); } catch (e) {} ref(); });
 
     function avisa(t) { st2.textContent = t; }
+    // ───────── rascunho: tudo o que a pessoa marcou e escreveu sobrevive a um redesenho do formulário ─────────
+    var CHAVE = "qr:" + SELO, montando = true;
+    function estado() {
+      return { q: blocos.map(function (B) {
+        return { sel: [].slice.call(B.os.querySelectorAll(".opt.sel")).map(function (x) { return x._o.c; }), ta: B.ta.value, aberta: !B.ta.hidden,
+          act: Object.keys(B.act).filter(function (k) { return k !== "comp" && B.act[k].classList.contains("on"); }),
+          data: B.Bq.data ? iso(B.Bq.data) : null, noite: !!B.Bq.noite };
+      }), aj: escolhaAj, ajAberto: aj.open, gobs: gobs.value, enviado: enviado };
+    }
+    function salvar() { if (montando) return; try { localStorage.setItem(CHAVE, JSON.stringify(estado())); } catch (e) {} }
+    function restaurar() {
+      var s; try { s = JSON.parse(localStorage.getItem(CHAVE) || "null"); } catch (e) { s = null; }
+      if (!s || !s.q) return false;
+      blocos.forEach(function (B, i) {
+        var e = s.q[i]; if (!e) return;
+        B.os.querySelectorAll(".opt").forEach(function (x) { var on = e.sel.indexOf(x._o.c) >= 0; x.classList.toggle("sel", on); x._inp.checked = on; });
+        B.ta.value = e.ta || ""; B.ta.hidden = !e.aberta; B.act.comp.classList.toggle("on", !!e.aberta); B.act.comp.classList.toggle("tem", !e.aberta && !!B.ta.value.trim());
+        (e.act || []).forEach(function (k) { if (B.act[k]) B.act[k].classList.add("on"); });
+        if (e.data) { var q = e.data.split("-"); B.Bq.data = new Date(+q[0], +q[1] - 1, +q[2]); B.Bq.noite = e.noite; B.adp.hidden = (e.act || []).indexOf("adiar") < 0; B.adp.querySelector("input").value = e.data; }
+        if ((e.act || []).indexOf("encerrar") >= 0) { B.os.classList.add("off"); Object.keys(B.act).forEach(function (k) { if (k !== "encerrar") B.act[k].classList.add("off"); }); }
+      });
+      Object.keys(s.aj || {}).forEach(function (g) {
+        escolhaAj[g] = s.aj[g] || [];
+        aj.querySelectorAll(".chip").forEach(function (c) { if (c._v && escolhaAj[g].indexOf(c._v) >= 0) c.classList.add("on"); });
+      });
+      if (escolhaAj.Conselho && escolhaAj.Conselho.length) aj.querySelectorAll(".cons").forEach(function (x) { x.hidden = false; });
+      aj.open = !!s.ajAberto; gobs.value = s.gobs || "";
+      return s;
+    }
     function antigo(txt) {
       var ta = el("textarea"); ta.value = txt; ta.setAttribute("readonly", ""); ta.style.position = "absolute"; ta.style.left = "-9999px";
       document.body.appendChild(ta); ta.select();
@@ -460,7 +490,7 @@
       var txt = build().text;
       try {
         var r = window.sendPrompt(txt);
-        enviado = Date.now();
+        enviado = Date.now(); salvar();
         var hm = new Date().toTimeString().slice(0, 5);
         avisa("Enviado às " + hm + ". Se não apareceu no chat em alguns segundos, use Copiar resposta.");
         sendlab.textContent = "Enviado ✓";
@@ -470,7 +500,13 @@
     send.addEventListener("click", enviar);
     ff.addEventListener("keydown", function (ev) { if ((ev.metaKey || ev.ctrlKey) && ev.key === "Enter") { ev.preventDefault(); enviar(); } });
 
-    padrao(); ref();
+    padrao();
+    var rest = restaurar();
+    montando = false; ref();
+    if (rest) {
+      if (rest.enviado) { enviado = rest.enviado; sendlab.textContent = "Enviado ✓"; avisa("Este formulário já foi enviado às " + new Date(rest.enviado).toTimeString().slice(0, 5) + ". Se não apareceu no chat, use Copiar resposta."); }
+      else avisa("Rascunho restaurado: o chat redesenhou o formulário, e nada do que você marcou ou escreveu se perdeu.");
+    }
     hosp.textContent = "";
     hosp.appendChild(ff);
     window.CC_ATALHOS_OK = true;
