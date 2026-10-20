@@ -4,7 +4,7 @@
  *  Envelope (o mesmo em todo formulário):
  *    <div id="ccf">Formulário carregando. Se ele não aparecer, responda por texto: S aceita as sugestões, ou 1b 2a.</div>
  *    <script type="application/json" id="ccd">{"a":"<nome>","q":[{"t":"…","o":[{"e":"🚀","l":"…","s":"…","r":1}]}]}<\/script>
- *    <script src="https://cdn.jsdelivr.net/gh/ggbianco/cc-atalhos@v4.1.0/cc-atalhos.js"><\/script>
+ *    <script src="https://cdn.jsdelivr.net/gh/ggbianco/cc-atalhos@v4.1.1/cc-atalhos.js"><\/script>
  *
  *  Dados (campo omitido = padrão):
  *    a  autor (nome de quem responde)          i  introdução
@@ -20,7 +20,7 @@
  */
 (function () {
   "use strict";
-  var V = "4.1.0";
+  var V = "4.1.1";
 
   // ───────── utilitários ─────────
   function el(tag, cls, txt) {
