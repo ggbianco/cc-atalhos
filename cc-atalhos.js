@@ -4,10 +4,12 @@
  *  Envelope (o mesmo em todo formulário):
  *    <div id="ccf">Formulário carregando. Se ele não aparecer, responda por texto: S aceita as sugestões, ou 1b 2a.</div>
  *    <script type="application/json" id="ccd">{"a":"<nome>","q":[{"t":"…","o":[{"e":"🚀","l":"…","s":"…","r":1}]}]}<\/script>
- *    <script src="https://cdn.jsdelivr.net/gh/ggbianco/cc-atalhos@v4.1.5/cc-atalhos.js"><\/script>
+ *    <script src="https://cdn.jsdelivr.net/gh/ggbianco/cc-atalhos@v4.2.0/cc-atalhos.js"><\/script>
  *
  *  Dados (campo omitido = padrão):
  *    a  autor (nome de quem responde)          i  introdução
+ *    lt[] linha do tempo [hora, o que aconteceu, detalhe, estado "f" feito | "a" em andamento | "p" pendente]
+ *    px[] próximos passos (texto)
  *    q[] perguntas, numeradas pela posição      q.t título (obrigatório)
  *    q.m "m" = escolha múltipla                 q.w "por que estou perguntando" (abre e fecha)
  *    q.k "i" o Claude inferiu · "f" só você sabe (sem sugestão, ganha "Não sei") · "x" vai para fora (nada é enviado por aqui)
@@ -20,7 +22,7 @@
  */
 (function () {
   "use strict";
-  var V = "4.1.5";
+  var V = "4.2.0";
 
   // ───────── utilitários ─────────
   function el(tag, cls, txt) {
@@ -137,6 +139,26 @@
     ".qr .ab .tip{position:absolute;top:calc(100% + 6px);left:0;z-index:5;width:max-content;max-width:260px;background:#1E293B;color:#fff;font-size:12.5px;font-weight:400;line-height:1.45;padding:6px 9px;border-radius:7px;opacity:0;pointer-events:none;transition:opacity .1s}" +
     ".qr .ab:hover .tip,.qr .ab:focus-visible .tip{opacity:1;transition-delay:.1s}" +
     ".qr textarea{width:calc(100% - 6px);margin:8px 0 0 6px;background:var(--surface-2,#fff);border:1px solid var(--border-strong,#bbb);border-radius:8px;font-family:var(--font-sans,system-ui);font-size:15px;line-height:1.5;padding:9px 12px;color:var(--text-primary,#222);resize:vertical;min-height:84px}" +
+    ".qr .lt{margin:0 0 1.6rem;padding:14px 16px 6px;border-radius:12px;background:var(--surface-1,#f6f6f6)}" +
+    ".qr .lt-h{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-secondary,#555);margin:0 0 12px;display:flex;align-items:center;gap:6px}" +
+    ".qr .lti{display:grid;grid-template-columns:54px 22px 1fr;column-gap:8px}" +
+    ".qr .lti .hr{font-size:13.5px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--text-secondary,#555);text-align:right;padding-top:1px}" +
+    ".qr .lti .tr{position:relative;display:flex;justify-content:center}" +
+    ".qr .lti .tr::before{content:'';position:absolute;top:0;bottom:0;left:50%;border-left:2px solid var(--border-strong,#ccc);transform:translateX(-1px)}" +
+    ".qr .lti:first-of-type .tr::before{top:9px}.qr .lti.ult .tr::before{bottom:auto;height:9px}" +
+    ".qr .lti .pt{position:relative;z-index:1;width:12px;height:12px;border-radius:50%;margin-top:4px;background:var(--acc);border:2px solid var(--acc)}" +
+    ".qr .lti.a .pt{background:var(--surface-1,#f6f6f6);border-color:var(--verde);box-shadow:0 0 0 4px var(--verdebg);animation:qr-pulsa 1.6s ease-in-out infinite}" +
+    ".qr .lti.p .pt{background:var(--surface-1,#f6f6f6);border-color:var(--border-strong,#bbb)}" +
+    ".qr .lti .tx{padding:0 0 16px;min-width:0}" +
+    ".qr .lti .tt2{font-size:15px;font-weight:600;line-height:1.45}" +
+    ".qr .lti.a .tt2::after{content:' · em andamento';font-weight:500;font-size:13px;color:var(--verde)}" +
+    ".qr .lti.p .tt2{color:var(--text-secondary,#555)}" +
+    ".qr .lti .dd{font-size:14px;line-height:1.6;color:var(--text-secondary,#555);margin-top:3px}" +
+    ".qr .px{border-top:.5px solid var(--border,#ddd);margin:2px 0 10px;padding-top:12px}" +
+    ".qr .px-h{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-secondary,#555);margin:0 0 8px}" +
+    ".qr .px-i{display:flex;gap:8px;font-size:14.5px;line-height:1.55;margin:0 0 6px}" +
+    ".qr .px-i i{color:var(--acc);margin-top:3px}" +
+    "@keyframes qr-pulsa{50%{box-shadow:0 0 0 7px var(--verdebg)}}" +
     ".qr .warn{font-size:14px;color:var(--verm);margin:6px 0 0 6px}" +
     ".qr details.ajuste{margin:1.4rem 0 0;border-top:.5px solid var(--border,#ddd);padding-top:.9rem}" +
     ".qr details.ajuste summary{cursor:pointer;font-size:14.5px;font-weight:600;color:var(--text-primary,#222);list-style:none;display:flex;align-items:center;gap:7px}" +
@@ -172,6 +194,8 @@
     return {
       autor: String((antigo ? cfg.autor : cfg.a) || "").trim(),
       intro: String((antigo ? cfg.intro : cfg.i) || ""),
+      lt: (cfg.lt || []).filter(function (x) { return x && x.length >= 2; }),
+      px: (cfg.px || []).map(String).filter(Boolean),
       qs: lista.map(function (Q, idx) {
         Q = Q || {};
         var ops = (antigo ? Q.opts : Q.o) || [];
@@ -201,6 +225,26 @@
     if (!document.getElementById("qr-css")) { var st = el("style"); st.id = "qr-css"; st.textContent = CSS; document.head.appendChild(st); }
     var ff = el("div", "qr");
     if (D.intro) ff.appendChild(el("p", "intro", D.intro));
+    if (D.lt.length || D.px.length) { // linha do tempo (comentário do Giovanni no v8, 17/10/2026): onde estamos, com respiro
+      var lt = el("div", "lt");
+      if (D.lt.length) {
+        var lh = el("div", "lt-h"); lh.appendChild(ic("timeline")); lh.appendChild(document.createTextNode("Onde estamos")); lt.appendChild(lh);
+        D.lt.forEach(function (x, k) {
+          var est = x[3] === "a" || x[3] === "p" ? x[3] : "f";
+          var it = el("div", "lti " + est + (k === D.lt.length - 1 ? " ult" : ""));
+          it.appendChild(el("div", "hr", x[0]));
+          var tr = el("div", "tr"); tr.appendChild(el("span", "pt")); it.appendChild(tr);
+          var tx = el("div", "tx"); tx.appendChild(el("div", "tt2", x[1])); if (x[2]) tx.appendChild(el("div", "dd", x[2]));
+          it.appendChild(tx); lt.appendChild(it);
+        });
+      }
+      if (D.px.length) {
+        var pxb = el("div", "px"); pxb.appendChild(el("div", "px-h", "Próximos passos"));
+        D.px.forEach(function (p) { var r = el("div", "px-i"); r.appendChild(ic("arrow-right")); r.appendChild(el("span", null, p)); pxb.appendChild(r); });
+        lt.appendChild(pxb);
+      }
+      ff.appendChild(lt);
+    }
     var blocos = [], defeito = [];
 
     D.qs.forEach(function (Q) {
