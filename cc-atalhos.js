@@ -4,7 +4,7 @@
  *  Envelope (o mesmo em todo formulário):
  *    <div id="ccf">Formulário carregando. Se ele não aparecer, responda por texto: S aceita as sugestões, ou 1b 2a.</div>
  *    <script type="application/json" id="ccd">{"a":"<nome>","q":[{"t":"…","o":[{"e":"🚀","l":"…","s":"…","r":1}]}]}<\/script>
- *    <script src="https://cdn.jsdelivr.net/gh/ggbianco/cc-atalhos@v4.1.4/cc-atalhos.js"><\/script>
+ *    <script src="https://cdn.jsdelivr.net/gh/ggbianco/cc-atalhos@v4.1.5/cc-atalhos.js"><\/script>
  *
  *  Dados (campo omitido = padrão):
  *    a  autor (nome de quem responde)          i  introdução
@@ -20,7 +20,7 @@
  */
 (function () {
   "use strict";
-  var V = "4.1.4";
+  var V = "4.1.5";
 
   // ───────── utilitários ─────────
   function el(tag, cls, txt) {
@@ -512,7 +512,8 @@
       }
       function recusado() {
         enviado = 0; salvar(); sendlab.textContent = "Enviar"; copy.classList.add("primary");
-        avisa("O app recusou o envio nesta conversa (respondeu \"erro\" sem dizer o motivo). " +
+        // Causa medida em 20/10/2026 (sondas 5 e 6, mesma conversa): na janela avulsa o app recusa; na principal, aceita.
+        avisa("O app recusou o envio. Isso acontece quando a conversa está numa janela avulsa do Claude Code: na janela principal funciona. " +
           (copiou ? "A resposta já foi copiada: cole no chat com Cmd+V." : "Use Copiar resposta e cole no chat (Cmd+V)."));
       }
       window.addEventListener("message", ouvido);
